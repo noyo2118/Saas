@@ -116,9 +116,14 @@ async def run_pipeline(
     # ----------------------- stage: DISPATCH (parallel analyzers)
     await _emit(scan_id, "dispatch", "running")
 
+    # For domain-typed targets, the URL analyzer still needs a full URL.
+    url_for_probe = target if tt == "url" else (
+        target if str(target).startswith(("http://", "https://")) else f"https://{target}"
+    )
+
     async def _run_url():
         try:
-            return await analyze_url(target)
+            return await analyze_url(url_for_probe)
         except Exception as exc:  # noqa: BLE001
             log.warning("url_analyze_failed", extra={"err": str(exc)[:200]})
             return {"error": str(exc)[:200]}
