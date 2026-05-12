@@ -32,23 +32,24 @@ bun run dev        # Vite dev server → http://localhost:8080
 The Vite dev server proxies `/api/*` to `http://localhost:8000` (configurable via
 `TRUSTSCAN_API_URL`) so CORS is never an issue in local development.
 
-## API keys
+## API keys — **all free, no card required**
 
-Everything is optional in development — the backend runs with zero keys and
-falls back to rule-based scoring + a deterministic AI report.
+Every key is optional in development — the backend runs with zero keys,
+falls back to rule-based scoring and a deterministic AI report, and always
+renders the PDF report (which is fully local, no external service).
 
-To enable external providers, add these to `backend/.env` (or your hosting
-platform's secret manager):
+To enable external providers, add these to `backend/.env`:
 
-| Purpose | Env var |
-| --- | --- |
-| Google Safe Browsing (URL / domain) | `GOOGLE_SAFE_BROWSING_API_KEY` |
-| AbuseIPDB (IP abuse) | `ABUSEIPDB_API_KEY` |
-| IPQualityScore (IP / URL / email fraud) | `IPQS_API_KEY` |
-| Scamalytics (IP fraud) | `SCAMALYTICS_API_KEY` |
-| Google Gemini (AI explanations) | `GOOGLE_AI_API_KEY` |
-| Anthropic Claude (AI explanations) | `ANTHROPIC_API_KEY` |
-| SMTP (email OTP delivery) | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` |
+| Purpose | Env var | Cost | Card? |
+| --- | --- | --- | --- |
+| Google Safe Browsing (URL / domain reputation) | `GOOGLE_SAFE_BROWSING_API_KEY` | Free | No |
+| AbuseIPDB (IP abuse reputation) | `ABUSEIPDB_API_KEY` | Free (1k/day) | No |
+| IPQualityScore (IP / URL / email fraud) | `IPQS_API_KEY` | Free (5k/month) | No |
+| Claude Sonnet via Puter.js relay | `PUTER_AUTH_TOKEN` | Free | No |
+| SMTP (email OTP delivery) | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM` | Depends on provider | — |
+
+Paid / card-required services (Gemini, Anthropic direct, Scamalytics, Gamma,
+Leonardo) are **intentionally not used** — everything ships free.
 
 See [`backend/README.md`](./backend/README.md) for the full spec (architecture,
 security model, API surface, scoring rules, deployment).

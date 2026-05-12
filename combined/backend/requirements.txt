@@ -35,3 +35,6 @@ dnspython>=2.7.0            # optional MX/TXT — enables full DNS layer
 
 # ── Caching ──────────────────────────────────────────────
 redis>=5.2.0                 # optional — falls back to in-memory if unset
+
+# ── PDF report generation (free, pure Python, offline) ───
+reportlab>=4.2.0

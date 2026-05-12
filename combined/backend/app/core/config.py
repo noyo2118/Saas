@@ -72,17 +72,15 @@ class Settings(BaseSettings):
         "Mozilla/5.0 (compatible; TrustScan/4.2; +https://trustscan.ai/bot)"
     )
 
-    # intelligence providers
+    # intelligence providers (all free tiers)
     GOOGLE_SAFE_BROWSING_API_KEY: Optional[str] = None
     ABUSEIPDB_API_KEY: Optional[str] = None
     IPQS_API_KEY: Optional[str] = None
-    SCAMALYTICS_API_KEY: Optional[str] = None
 
-    # AI providers
-    GOOGLE_AI_API_KEY: Optional[str] = None
-    ANTHROPIC_API_KEY: Optional[str] = None
-    AI_MODEL_GOOGLE: str = "gemini-1.5-flash"
-    AI_MODEL_CLAUDE: str = "claude-3-5-sonnet-latest"
+    # AI providers — free only
+    # Puter.js relays Claude Sonnet for free using a browser auth token.
+    PUTER_AUTH_TOKEN: Optional[str] = None
+    AI_MODEL_CLAUDE: str = "claude-sonnet-4-5"
 
     # email / smtp
     SMTP_HOST: Optional[str] = None

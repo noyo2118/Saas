@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -11,6 +12,7 @@ from app.core.exceptions import NotFoundError
 from app.database.session import get_db
 from app.models.scan import Scan, ScanResult
 from app.models.user import User
+from app.reports.pdf_report import build_pdf_report
 from app.scans.orchestrator import run_scan
 from app.schemas.common import MessageResponse
 from app.schemas.scans import AIReportOut, IndicatorOut, ScanDetail, ScanRequest, ScanSummary
@@ -120,3 +122,30 @@ async def delete_scan(scan_id: str, db: AsyncSession = Depends(get_db)) -> Messa
     await db.delete(scan)
     await db.commit()
     return MessageResponse(ok=True, message="Scan deleted.")
+
+
+@router.get("/{scan_id}/report.pdf", responses={200: {"content": {"application/pdf": {}}}})
+async def get_scan_report_pdf(scan_id: str, db: AsyncSession = Depends(get_db)) -> Response:
+    """Render the full scan as an 8-page structured PDF (real data, zero AI).
+
+    Pages: cover · executive summary · TLS/SSL · domain intel · reputation
+    matrix · phishing heuristics · HTTP response · indicator log.
+    """
+    detail = await _detail(db, scan_id)
+    payload = detail.model_dump()
+    # serialise datetimes to strings so the renderer's table rows display cleanly
+    if payload.get("created_at"):
+        payload["created_at"] = str(payload["created_at"])
+    if payload.get("completed_at"):
+        payload["completed_at"] = str(payload["completed_at"])
+
+    pdf_bytes = build_pdf_report(payload)
+    safe_name = "".join(c if c.isalnum() or c in ".-_" else "_" for c in (detail.target or "scan"))[:80]
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="trustscan_{safe_name}.pdf"',
+            "Cache-Control": "private, no-store",
+        },
+    )

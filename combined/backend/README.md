@@ -77,17 +77,18 @@ Every setting is documented inline in `.env.example`. Highlights:
 | `CORS_ORIGINS` | Comma-separated frontend origins |
 | SMTP\_\* | To actually deliver OTPs |
 
-### Intelligence provider API keys
+### Intelligence provider API keys — **all 100% free, no credit card**
 
-All provider keys are optional. A provider with a missing key reports
-`enabled=False` and is skipped by the aggregator. The others still run.
+Every provider key is optional. Missing keys disable the provider at runtime;
+the rest still run. Scores degrade gracefully.
 
-| Provider | Env var | Supports | Where to get |
+| Provider | Env var | Free tier | Card required? |
 | --- | --- | --- | --- |
-| Google Safe Browsing | `GOOGLE_SAFE_BROWSING_API_KEY` | url, domain | https://developers.google.com/safe-browsing/v4/get-started |
-| AbuseIPDB | `ABUSEIPDB_API_KEY` | ip | https://www.abuseipdb.com/account/api |
-| IPQualityScore | `IPQS_API_KEY` | ip, url, email | https://www.ipqualityscore.com/ |
-| Scamalytics | `SCAMALYTICS_API_KEY` | ip | https://scamalytics.com/ip/api |
+| Google Safe Browsing | `GOOGLE_SAFE_BROWSING_API_KEY` | 10,000 req/day | No |
+| AbuseIPDB | `ABUSEIPDB_API_KEY` | 1,000 checks/day | No |
+| IPQualityScore | `IPQS_API_KEY` | 5,000 lookups/month | No |
+
+Sign-up links are in `.env.example`.
 
 Add a new provider in three steps:
 
@@ -95,18 +96,41 @@ Add a new provider in three steps:
 2. Register it in `app/intelligence/registry.py`.
 3. Add the env var it reads to `app/core/config.py` + `.env.example`.
 
-### AI provider API keys
+### AI — **free via Puter.js relay to Claude Sonnet**
 
-First enabled provider wins. If none is configured, the orchestrator emits a
-deterministic rule-based report so the UI never breaks.
+The orchestrator uses Puter.js as a free relay for Claude. No Anthropic
+account, no billing, no card. When `PUTER_AUTH_TOKEN` is blank the backend
+falls back to a deterministic rule-based report so the UI never breaks.
 
-| Provider | Env var | Model env var |
-| --- | --- | --- |
-| Google Gemini | `GOOGLE_AI_API_KEY` | `AI_MODEL_GOOGLE` (default `gemini-1.5-flash`) |
-| Anthropic Claude | `ANTHROPIC_API_KEY` | `AI_MODEL_CLAUDE` (default `claude-3-5-sonnet-latest`) |
+| Provider | Env var | Model env var | Cost |
+| --- | --- | --- | --- |
+| Claude (via Puter.js) | `PUTER_AUTH_TOKEN` | `AI_MODEL_CLAUDE` (default `claude-sonnet-4-5`) | Free |
 
-Add a new AI provider by subclassing `AIProvider` in `app/ai/providers/` and
+Grab the token from your Puter browser console:
+
+```js
+puter.auth.getAuthToken()   // paste output into .env
+```
+
+Add another AI provider by subclassing `AIProvider` in `app/ai/providers/` and
 prepending it to `_PROVIDERS` in `app/ai/orchestrator.py`.
+
+### PDF intelligence reports
+
+`GET /api/v1/scans/{id}/report.pdf` renders an **8-page VirusTotal-style PDF**
+from the real scan payload. Zero AI in the document itself — every value is
+pulled directly from the scan result:
+
+1. **Cover** — target, verdict, trust score, timestamps
+2. **Executive summary** — severity counters, top 10 indicators, module coverage
+3. **TLS / SSL** — certificate chain, cipher, SAN, expiry
+4. **Domain intelligence** — WHOIS, registrar, DNS (A/MX/NS/SPF/DMARC/DKIM)
+5. **Reputation matrix** — per-provider verdicts, aggregate score, VPN/proxy/Tor
+6. **Phishing heuristics** — every fired heuristic with severity + score delta
+7. **HTTP response** — security headers, redirect chain, body patterns
+8. **Indicator log** — full scoring rule audit trail
+
+Rendered with `reportlab` (pure Python, no external service, no API key).
 
 ## API surface (v1)
 
@@ -125,6 +149,7 @@ Base URL: `/api/v1`. All responses wrap errors in `{ ok: false, error: { code, m
 - `POST /scans` — run an orchestrated scan (target: URL / IP / domain / email)
 - `GET /scans` — list recent scans
 - `GET /scans/{id}` — full scan detail with indicators + AI report
+- `GET /scans/{id}/report.pdf` — download an 8-page structured PDF report
 - `DELETE /scans/{id}` — delete a scan
 
 ### Direct intelligence

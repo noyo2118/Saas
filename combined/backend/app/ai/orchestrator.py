@@ -1,4 +1,4 @@
-"""AI orchestrator — picks the first enabled provider, falls back gracefully."""
+"""AI orchestrator — uses Puter/Claude (free), falls back to rule-based report."""
 from __future__ import annotations
 
 from typing import Any
@@ -6,7 +6,6 @@ from typing import Any
 from app.ai.prompts import fallback_report
 from app.ai.providers.base import AIResponse
 from app.ai.providers.claude import ClaudeAI
-from app.ai.providers.google import GoogleAI
 from app.cache.keys import ns
 from app.cache.redis import cache
 from app.core.config import settings
@@ -14,7 +13,8 @@ from app.telemetry.logger import get_logger
 
 log = get_logger(__name__)
 
-_PROVIDERS = [GoogleAI(), ClaudeAI()]
+# Only free providers. Add more here (first enabled one wins).
+_PROVIDERS = [ClaudeAI()]
 
 
 def _build_context(scan_payload: dict[str, Any]) -> dict[str, Any]:

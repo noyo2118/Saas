@@ -204,6 +204,11 @@ export function openScanProgress(
   };
 }
 
+/** Direct download URL for the 8-page structured PDF report. */
+export function reportPdfUrl(scanId: string): string {
+  return v1(`/scans/${encodeURIComponent(scanId)}/report.pdf`);
+}
+
 // ── Offline fallback — keeps the UI usable without a backend ─────────────────
 export function deriveScan(target: string): ScanResult {
   let h = 0;
