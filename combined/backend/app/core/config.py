@@ -30,59 +30,71 @@ class Settings(BaseSettings):
     PORT: int = 8000
     WORKERS: int = 1
 
-    # security
+    # --------------------------------------------------------------- security
     SECRET_KEY: str = "change-me-in-production-" + "x" * 32
     JWT_ALG: str = "HS256"
     JWT_ACCESS_TTL_MIN: int = 30
     JWT_REFRESH_TTL_DAYS: int = 30
+    JWT_ISSUER: str = "trustscan"
+    JWT_AUDIENCE: str = "trustscan:web"
     OTP_TTL_SECONDS: int = 300
     OTP_RESEND_COOLDOWN_SEC: int = 60
     OTP_MAX_ATTEMPTS: int = 5
     OTP_LENGTH: int = 6
 
-    # cors
+    # Brute-force lockout — applies to auth endpoints per (email, ip).
+    AUTH_LOCKOUT_THRESHOLD: int = 10          # failed attempts before lockout
+    AUTH_LOCKOUT_WINDOW_SEC: int = 900        # observation window (15 min)
+    AUTH_LOCKOUT_DURATION_SEC: int = 900      # lockout duration (15 min)
+
+    # Body / upload limits
+    MAX_REQUEST_BYTES: int = 1_048_576        # 1 MiB hard cap
+
+    # Trusted hosts — comma-separated in env. Checked only in production.
+    TRUSTED_HOSTS: List[str] = []
+
+    # --------------------------------------------------------------- cors
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:8080",
     ]
 
-    # database
+    # --------------------------------------------------------------- database
     DATABASE_URL: str = "sqlite+aiosqlite:///./trustscan.db"
     DB_ECHO: bool = False
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
 
-    # cache
+    # --------------------------------------------------------------- cache
     REDIS_URL: Optional[str] = None
     CACHE_SCAN_TTL: int = 300
     CACHE_REPUTATION_TTL: int = 1800
     CACHE_DNS_TTL: int = 600
     CACHE_AI_TTL: int = 3600
 
-    # rate limiting
+    # --------------------------------------------------------------- rate limiting
     RATE_LIMIT_SCAN_PER_MIN: int = 30
     RATE_LIMIT_AUTH_PER_MIN: int = 10
     RATE_LIMIT_GLOBAL_PER_MIN: int = 120
 
-    # http client
+    # --------------------------------------------------------------- http client
     HTTP_TIMEOUT: float = 10.0
     HTTP_MAX_REDIRECTS: int = 5
     HTTP_USER_AGENT: str = (
         "Mozilla/5.0 (compatible; TrustScan/4.2; +https://trustscan.ai/bot)"
     )
 
-    # intelligence providers (all free tiers)
+    # --------------------------------------------------------------- intelligence
     GOOGLE_SAFE_BROWSING_API_KEY: Optional[str] = None
     ABUSEIPDB_API_KEY: Optional[str] = None
     IPQS_API_KEY: Optional[str] = None
 
-    # AI providers — free only
-    # Puter.js relays Claude Sonnet for free using a browser auth token.
+    # AI
     PUTER_AUTH_TOKEN: Optional[str] = None
     AI_MODEL_CLAUDE: str = "claude-sonnet-4-5"
 
-    # email / smtp
+    # --------------------------------------------------------------- email / smtp
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587
     SMTP_USERNAME: Optional[str] = None
@@ -90,19 +102,20 @@ class Settings(BaseSettings):
     SMTP_FROM: str = "TrustScan <noreply@trustscan.ai>"
     SMTP_TLS: bool = True
 
-    # scanner safety
+    # --------------------------------------------------------------- scanner safety
     BLOCK_PRIVATE_IPS: bool = True
     BLOCK_LOCALHOST: bool = True
     ALLOWED_SCHEMES: List[str] = ["http", "https"]
     MAX_URL_LENGTH: int = 2048
     MAX_REDIRECT_CHAIN: int = 10
 
-    # logging
+    # --------------------------------------------------------------- logging
     LOG_LEVEL: str = "INFO"
     LOG_JSON: bool = True
     METRICS_ENABLED: bool = True
 
-    @field_validator("CORS_ORIGINS", "ALLOWED_SCHEMES", mode="before")
+    # --------------------------------------------------------------- validators
+    @field_validator("CORS_ORIGINS", "ALLOWED_SCHEMES", "TRUSTED_HOSTS", mode="before")
     @classmethod
     def _split_csv(cls, v):
         if isinstance(v, str):

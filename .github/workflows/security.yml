@@ -1,0 +1,79 @@
+name: security
+
+on:
+  push:
+    branches: [main, trustscan-platform-v1]
+    paths:
+      - "combined/backend/**"
+      - "combined/frontend/**"
+      - ".github/workflows/security.yml"
+  pull_request:
+    paths:
+      - "combined/backend/**"
+      - "combined/frontend/**"
+  schedule:
+    - cron: "17 3 * * 1"  # weekly Monday 03:17 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  python-deps:
+    name: Python dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pip-audit
+        run: python -m pip install --upgrade pip pip-audit
+      - name: Audit backend requirements
+        working-directory: combined/backend
+        run: pip-audit --strict -r requirements.txt
+
+  secret-scan:
+    name: Secret scanning (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  codeql:
+    name: CodeQL (python + javascript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  python-static:
+    name: Python static analysis (bandit + ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install tools
+        run: python -m pip install --upgrade pip bandit ruff
+      - name: Bandit
+        working-directory: combined/backend
+        run: bandit -q -r app -x app/utils -ll
+      - name: Ruff
+        working-directory: combined/backend
+        run: ruff check app

@@ -1,8 +1,16 @@
 """TrustScan — AI Cyber Threat Intelligence Platform.
 
-FastAPI application factory. All runtime wiring happens here: logging,
-middleware stack, exception handlers, OpenAPI metadata, API v1 routers,
-lifespan hooks, and the async ORJSON response class.
+FastAPI application factory. Defensive middleware stack order (outermost first):
+
+    RequestIdMiddleware           → trace id + access log
+    SecurityHeadersMiddleware     → OWASP response headers
+    TrustedHostMiddleware         → Host header validation (prod)
+    BodySizeLimitMiddleware       → 413 on oversized payloads
+    ContentTypeGuardMiddleware    → reject non-JSON mutations
+    GZipMiddleware                → compress large responses
+    CORSMiddleware                → CORS allowlist
+    IPGateMiddleware              → deny banned IPs before anything expensive
+    RateLimitMiddleware           → per-IP / per-bucket counter
 
 Run:
     uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop uvloop --http httptools
@@ -14,15 +22,19 @@ import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import ORJSONResponse, PlainTextResponse
 
 from app.api.v1.router import api_v1_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.lifespan import lifespan
+from app.middleware.body_limit import BodySizeLimitMiddleware
+from app.middleware.content_type import ContentTypeGuardMiddleware
+from app.middleware.ip_gate import IPGateMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_id import RequestIdMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
+from app.middleware.trusted_host import TrustedHostMiddleware
 from app.monitoring.health import router as health_router
 from app.telemetry.logger import configure_logging, get_logger
 
@@ -66,24 +78,49 @@ def create_app() -> FastAPI:
         ],
     )
 
-    # middleware (order matters)
-    app.add_middleware(RequestIdMiddleware)
-    app.add_middleware(SecurityHeadersMiddleware)
-    app.add_middleware(GZipMiddleware, minimum_size=512)
+    # ------------------------------------------------------------------ middleware
+    # Starlette executes add_middleware in reverse order, so the *last* one added
+    # runs first. We add them in outermost-first order; the effective execution
+    # order matches the module docstring above.
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(IPGateMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["authorization", "content-type", "x-request-id"],
         expose_headers=["X-Request-ID", "X-Trace-ID"],
+        max_age=600,
     )
-    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(GZipMiddleware, minimum_size=512)
+    app.add_middleware(ContentTypeGuardMiddleware)
+    app.add_middleware(BodySizeLimitMiddleware)
+    app.add_middleware(TrustedHostMiddleware)
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestIdMiddleware)
 
+    # ------------------------------------------------------------------ exceptions
     register_exception_handlers(app)
 
+    # ------------------------------------------------------------------ routers
     app.include_router(health_router)
     app.include_router(api_v1_router, prefix=settings.API_V1_PREFIX)
+
+    # ------------------------------------------------------------------ well-known
+    @app.get("/.well-known/security.txt", include_in_schema=False)
+    async def security_txt() -> PlainTextResponse:
+        body = (
+            "Contact: mailto:security@trustscan.ai\n"
+            "Expires: 2030-01-01T00:00:00Z\n"
+            "Preferred-Languages: en\n"
+            "Policy: https://github.com/noyo2118/Saas/blob/main/SECURITY.md\n"
+        )
+        return PlainTextResponse(body, media_type="text/plain")
+
+    @app.get("/robots.txt", include_in_schema=False)
+    async def robots_txt() -> PlainTextResponse:
+        return PlainTextResponse("User-agent: *\nDisallow:\n", media_type="text/plain")
 
     @app.get("/", tags=["health"], include_in_schema=False)
     async def root() -> dict:
@@ -92,7 +129,7 @@ def create_app() -> FastAPI:
             "service": settings.APP_NAME,
             "version": settings.APP_VERSION,
             "env": settings.APP_ENV,
-            "docs": "/docs",
+            "docs": "/docs" if not settings.is_production else None,
             "api": settings.API_V1_PREFIX,
         }
 

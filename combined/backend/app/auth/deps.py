@@ -11,6 +11,7 @@ from app.auth.jwt import decode_access
 from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.database.session import get_db
 from app.models.user import User
+from app.security.jwt_denylist import is_revoked
 
 
 async def get_current_user(
@@ -21,6 +22,11 @@ async def get_current_user(
         raise UnauthorizedError("Missing bearer token.")
     token = authorization.split(" ", 1)[1].strip()
     payload = decode_access(token)
+
+    jti = payload.get("jti")
+    if jti and await is_revoked(jti):
+        raise UnauthorizedError("Token has been revoked.")
+
     sub = payload.get("sub")
     if not sub:
         raise UnauthorizedError("Token subject missing.")
