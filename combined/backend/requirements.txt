@@ -1,0 +1,40 @@
+# ── Web stack ─────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+uvloop>=0.21.0; sys_platform != "win32"
+httptools>=0.6.4
+orjson>=3.10.0
+python-multipart>=0.0.12
+
+# ── Data / config ────────────────────────────────────────
+pydantic>=2.9.0
+pydantic-settings>=2.6.0
+email-validator>=2.2.0
+python-dotenv>=1.0.1
+
+# ── Database ─────────────────────────────────────────────
+sqlalchemy>=2.0.36
+aiosqlite>=0.20.0          # dev / default driver
+asyncpg>=0.30.0            # production (Postgres)
+alembic>=1.14.0
+
+# ── HTTP clients / async ─────────────────────────────────
+httpx>=0.28.0
+anyio>=4.6.0
+
+# ── Security / crypto ────────────────────────────────────
+pyjwt>=2.9.0
+cryptography>=43.0.0
+
+# ── Email ────────────────────────────────────────────────
+aiosmtplib>=3.0.2
+
+# ── Intelligence ─────────────────────────────────────────
+python-whois>=0.9.4
+dnspython>=2.7.0            # optional MX/TXT — enables full DNS layer
+
+# ── Caching ──────────────────────────────────────────────
+redis>=5.2.0                 # optional — falls back to in-memory if unset
+
+# ── PDF report generation (free, pure Python, offline) ───
+reportlab>=4.2.0
